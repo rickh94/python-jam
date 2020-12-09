@@ -1,4 +1,5 @@
 # python_jam
+[![Build Status](https://travis-ci.org/rickh94/python-jam.svg?branch=main)](https://travis-ci.org/rickh94/python-jam)
 
 An asynchronous python implementation
 of [Just Authenticate Me](https://justauthenticate.me)'s REST Api.

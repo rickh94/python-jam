@@ -1,11 +1,13 @@
 import pytest
 from aioresponses import aioresponses
+from jwcrypto.jws import InvalidJWSSignature
 
 from python_jam import (
     JustAuthenticateMe,
     JAMBadRequest,
     JAMNotFound,
     JustAuthenticateMeError,
+    JAMNotVerified,
 )
 
 
@@ -78,5 +80,103 @@ async def test_authenticate_other_error(mock_aioresponse, jam):
     )
     with pytest.raises(JustAuthenticateMeError) as einfo:
         await jam.authenticate("test@example.com")
+
+    assert str(einfo.value) == "Unknown Error"
+
+
+@pytest.mark.asyncio
+async def test_get_jwks(mock_aioresponse, jam, mocker):
+    mock_aioresponse.get(
+        "https://api.justauthenticate.me/test-app-id/.well-known/jwks.json",
+        status=200,
+        payload={"keys": [{"key_info": "info"}]},
+    )
+    mock_jwk = mocker.patch("jwcrypto.jwk.JWK", return_value="mock_jwk_return_value")
+    jwk = await jam.jwk()
+
+    assert jwk == "mock_jwk_return_value"
+    assert jam._jwk == "mock_jwk_return_value"
+    mock_jwk.assert_called_with(key_info="info")
+
+
+@pytest.mark.asyncio
+async def test_get_jwks_error(mock_aioresponse, jam, mocker):
+    mock_aioresponse.get(
+        "https://api.justauthenticate.me/test-app-id/.well-known/jwks.json",
+        status=404,
+        payload={"message": "app not found"},
+    )
+    mock_jwk = mocker.patch("jwcrypto.jwk.JWK", return_value="mock_jwk_return_value")
+    with pytest.raises(JAMNotFound) as einfo:
+        await jam.jwk()
+
+    assert str(einfo.value) == "app not found"
+    mock_jwk.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_jwks_generic_error(mock_aioresponse, jam, mocker):
+    mock_aioresponse.get(
+        "https://api.justauthenticate.me/test-app-id/.well-known/jwks.json",
+        status=500,
+        payload={"message": "app not found"},
+    )
+    mock_jwk = mocker.patch("jwcrypto.jwk.JWK", return_value="mock_jwk_return_value")
+    with pytest.raises(JustAuthenticateMeError) as einfo:
+        await jam.jwk()
+
+    assert str(einfo.value) == "Unknown Error"
+    mock_jwk.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_get_jwks_lazily(mock_aioresponse, jam):
+    mock_aioresponse.get(
+        "https://api.justauthenticate.me/test-app-id/.well-known/jwks.json",
+        exception=Exception("Should not have been called"),
+    )
+    jam._jwk = "test_jwk"
+    jwk = await jam.jwk()
+
+    assert jwk == "test_jwk"
+
+
+@pytest.mark.asyncio
+async def test_verify_token(mocker, jam):
+    mock_verify = mocker.patch(
+        "python_jwt.verify_jwt", return_value=("headers", "claims")
+    )
+    jam._jwk = "fake_jwk"
+    headers, claims = await jam.verify_token("test-token")
+
+    assert headers == "headers"
+    assert claims == "claims"
+    mock_verify.assert_called_with("test-token", "fake_jwk", ["ES512"])
+
+
+@pytest.mark.asyncio
+async def test_verify_token_fails(monkeypatch, jam):
+    jam._jwk = "fake_jwk"
+
+    def _fail_verify(*args):
+        raise InvalidJWSSignature()
+
+    monkeypatch.setattr("python_jwt.verify_jwt", _fail_verify)
+
+    with pytest.raises(JAMNotVerified):
+        await jam.verify_token("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_verify_token_fails_unexpected(monkeypatch, jam):
+    jam._jwk = "fake_jwk"
+
+    def _fail_verify(*args):
+        raise Exception("Something weird happened")
+
+    monkeypatch.setattr("python_jwt.verify_jwt", _fail_verify)
+
+    with pytest.raises(JustAuthenticateMeError) as einfo:
+        await jam.verify_token("invalid-token")
 
     assert str(einfo.value) == "Unknown Error"
