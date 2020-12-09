@@ -7,5 +7,5 @@ before_install:
   - pip install poetry
 install:
   - poetry install
-script: poetry run pytest --cov=python_jam.py
+script: poetry run pytest --cov=python_jam
 after_success: bash <(curl -s https://codecov.io/bash)

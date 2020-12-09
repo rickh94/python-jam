@@ -2,7 +2,9 @@ import pytest
 from aioresponses import aioresponses
 
 from python_jam import (
-    JustAuthenticateMe, JAMBadRequest, JAMNotFound,
+    JustAuthenticateMe,
+    JAMBadRequest,
+    JAMNotFound,
     JustAuthenticateMeError,
 )
 
@@ -50,8 +52,9 @@ async def test_authenticate_bad_request(mock_aioresponse, jam):
         status=400,
         payload={"message": "invalid email"},
     )
-    with pytest.raises(JAMBadRequest):
+    with pytest.raises(JAMBadRequest) as einfo:
         await jam.authenticate("failure")
+    assert str(einfo.value) == "invalid email"
 
 
 @pytest.mark.asyncio
@@ -61,8 +64,10 @@ async def test_authenticate_not_found(mock_aioresponse, jam):
         status=404,
         payload={"message": "App not found"},
     )
-    with pytest.raises(JAMNotFound):
+    with pytest.raises(JAMNotFound) as einfo:
         await jam.authenticate("test@example.com")
+    assert str(einfo.value) == "App not found"
+
 
 @pytest.mark.asyncio
 async def test_authenticate_other_error(mock_aioresponse, jam):
@@ -71,5 +76,7 @@ async def test_authenticate_other_error(mock_aioresponse, jam):
         status=500,
         payload={"message": "Internal server error"},
     )
-    with pytest.raises(JustAuthenticateMeError):
+    with pytest.raises(JustAuthenticateMeError) as einfo:
         await jam.authenticate("test@example.com")
+
+    assert str(einfo.value) == "Unknown Error"
