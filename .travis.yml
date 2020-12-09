@@ -1,0 +1,11 @@
+language: python
+python:
+  - "3.6"
+  - "3.7"
+  - "3.8"
+before_install:
+  - pip install poetry
+install:
+  - poetry install
+script: poetry run pytest --cov=python_jam.py
+after_success: bash <(curl -s https://codecov.io/bash)

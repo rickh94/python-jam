@@ -111,7 +111,7 @@ class JustAuthenticateMe:
                 raise JustAuthenticateMeError("Unknown Error")
 
     async def delete_refresh_token(self, id_token: str, refresh_token: str):
-        """Delete a user's refresh token.
+        """Delete a user's refresh token. (i.e. logout)
         :param id_token: User's id token (JWT) from Just Authenticate Me
         :param refresh_token: The refresh token to delete
         :returns: None
@@ -141,7 +141,7 @@ class JustAuthenticateMe:
         async with aiohttp.ClientSession() as session:
             async with session.delete(
                 self.base_url + "user/refresh",
-                headers={"Authorization": f"Bearer {id_token}"}
+                headers={"Authorization": f"Bearer {id_token}"},
             ) as response:
                 if response.status == 204:
                     return
