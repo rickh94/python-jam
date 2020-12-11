@@ -241,11 +241,103 @@ async def test_refresh_not_found(mock_aioresponse, jam):
 @pytest.mark.asyncio
 async def test_refresh_unknown_error(mock_aioresponse, jam):
     mock_aioresponse.post(
-        "https://api.justauthenticate.me/test-app-id/refresh",
-        status=500,
+        "https://api.justauthenticate.me/test-app-id/refresh", status=500,
     )
 
     with pytest.raises(JustAuthenticateMeError) as einfo:
         await jam.refresh("test-token")
+
+    assert str(einfo.value) == "Unknown Error"
+
+
+@pytest.mark.asyncio
+async def test_delete_refresh_token(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh/test-refresh-token",
+        status=204,
+    )
+
+    await jam.delete_refresh_token("test-id-token", "test-refresh-token")
+
+    request_headers = [
+        item.kwargs["headers"] for item in list(mock_aioresponse.requests.values())[0]
+    ]
+    assert {"Authorization": "Bearer test-id-token"} in request_headers
+
+
+@pytest.mark.asyncio
+async def test_delete_refresh_token_unauthorized(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh/test-refresh-token",
+        status=401,
+    )
+
+    with pytest.raises(JAMUnauthorized) as einfo:
+        await jam.delete_refresh_token("test-id-token", "test-refresh-token")
+
+    assert str(einfo.value) == "ID token is invalid"
+
+
+@pytest.mark.asyncio
+async def test_delete_refresh_token_not_found(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh/test-refresh-token",
+        status=404,
+        payload={"message": "not found"},
+    )
+
+    with pytest.raises(JAMNotFound) as einfo:
+        await jam.delete_refresh_token("test-id-token", "test-refresh-token")
+
+    assert str(einfo.value) == "not found"
+
+
+@pytest.mark.asyncio
+async def test_delete_refresh_token_unknown_error(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh/test-refresh-token",
+        status=500,
+    )
+
+    with pytest.raises(JustAuthenticateMeError) as einfo:
+        await jam.delete_refresh_token("test-id-token", "test-refresh-token")
+
+    assert str(einfo.value) == "Unknown Error"
+
+
+@pytest.mark.asyncio
+async def test_delete_all_refresh_tokens(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh", status=204,
+    )
+
+    await jam.delete_all_refresh_tokens("test-id-token")
+
+    request_headers = [
+        item.kwargs["headers"] for item in list(mock_aioresponse.requests.values())[0]
+    ]
+    assert {"Authorization": "Bearer test-id-token"} in request_headers
+
+
+@pytest.mark.asyncio
+async def test_delete_all_refresh_tokens_unauthorized(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh", status=401,
+    )
+
+    with pytest.raises(JAMUnauthorized) as einfo:
+        await jam.delete_all_refresh_tokens("test-id-token")
+
+    assert str(einfo.value) == "ID token is invalid"
+
+
+@pytest.mark.asyncio
+async def test_delete_all_refresh_tokens_unknown_error(mock_aioresponse, jam):
+    mock_aioresponse.delete(
+        "https://api.justauthenticate.me/test-app-id/user/refresh", status=500
+    )
+
+    with pytest.raises(JustAuthenticateMeError) as einfo:
+        await jam.delete_all_refresh_tokens("test-id-token")
 
     assert str(einfo.value) == "Unknown Error"

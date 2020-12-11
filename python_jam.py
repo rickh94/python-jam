@@ -129,7 +129,7 @@ class JustAuthenticateMe:
                     raise JAMUnauthorized("ID token is invalid")
                 if response.status == 404:
                     data = await response.json()
-                    raise JAMNotFound(data["message"])
+                    raise JAMNotFound(data.get("message"))
                 raise JustAuthenticateMeError("Unknown Error")
 
     async def delete_all_refresh_tokens(self, id_token: str):
