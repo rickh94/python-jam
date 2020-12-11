@@ -8,6 +8,7 @@ from python_jam import (
     JAMNotFound,
     JustAuthenticateMeError,
     JAMNotVerified,
+    JAMUnauthorized,
 )
 
 
@@ -178,5 +179,73 @@ async def test_verify_token_fails_unexpected(monkeypatch, jam):
 
     with pytest.raises(JustAuthenticateMeError) as einfo:
         await jam.verify_token("invalid-token")
+
+    assert str(einfo.value) == "Unknown Error"
+
+
+@pytest.mark.asyncio
+async def test_refresh(mock_aioresponse, jam):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/refresh",
+        payload={"idToken": "new-id-token"},
+        status=200,
+    )
+
+    new_token = await jam.refresh("test-refresh-token")
+
+    assert new_token == "new-id-token"
+    request_args = [
+        item.kwargs["json"] for item in list(mock_aioresponse.requests.values())[0]
+    ]
+    assert {"refreshToken": "test-refresh-token"} in request_args
+
+
+@pytest.mark.asyncio
+async def test_refresh_bad_request(mock_aioresponse, jam):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/refresh",
+        payload={"message": "invalid body"},
+        status=400,
+    )
+
+    with pytest.raises(JAMBadRequest) as einfo:
+        await jam.refresh("failure")
+
+    assert str(einfo.value) == "invalid body"
+
+
+@pytest.mark.asyncio
+async def test_refresh_unauthorized(mock_aioresponse, jam):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/refresh", status=401
+    )
+
+    with pytest.raises(JAMUnauthorized):
+        await jam.refresh("failure")
+
+
+@pytest.mark.asyncio
+async def test_refresh_not_found(mock_aioresponse, jam):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/refresh",
+        status=404,
+        payload={"message": "app not found"},
+    )
+
+    with pytest.raises(JAMNotFound) as einfo:
+        await jam.refresh("test-token")
+
+    assert str(einfo.value) == "app not found"
+
+
+@pytest.mark.asyncio
+async def test_refresh_unknown_error(mock_aioresponse, jam):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/refresh",
+        status=500,
+    )
+
+    with pytest.raises(JustAuthenticateMeError) as einfo:
+        await jam.refresh("test-token")
 
     assert str(einfo.value) == "Unknown Error"

@@ -54,9 +54,9 @@ class JustAuthenticateMe:
                     return
                 data = await response.json()
                 if response.status == 400:
-                    raise JAMBadRequest(data["message"])
+                    raise JAMBadRequest(data.get("message"))
                 if response.status == 404:
-                    raise JAMNotFound(data["message"])
+                    raise JAMNotFound(data.get("message"))
                 raise JustAuthenticateMeError("Unknown Error")
 
     async def jwk(self):
@@ -65,12 +65,12 @@ class JustAuthenticateMe:
         async with aiohttp.ClientSession(json_serialize=json.dumps) as session:
             async with session.get(self.base_url + ".well-known/jwks.json") as response:
                 data = await response.json()
-                if response.status == 200:
+                if response.status == 200 and data.get("keys"):
                     key = data["keys"][0]
                     self._jwk = jwk.JWK(**key)
                     return self._jwk
                 if response.status == 404:
-                    raise JAMNotFound(data["message"])
+                    raise JAMNotFound(data.get("message"))
                 raise JustAuthenticateMeError("Unknown Error")
 
     async def verify_token(self, token):
@@ -100,14 +100,14 @@ class JustAuthenticateMe:
                 self.base_url + "refresh", json={"refreshToken": refresh_token}
             ) as response:
                 data = await response.json()
-                if response.status == 200:
+                if response.status == 200 and data.get("idToken"):
                     return data["idToken"]
                 if response.status == 400:
-                    raise JAMBadRequest(data["message"])
+                    raise JAMBadRequest(data.get("message"))
                 if response.status == 401:
                     raise JAMUnauthorized("Refresh token was invalid or expired")
                 if response.status == 404:
-                    raise JAMNotFound(data["message"])
+                    raise JAMNotFound(data.get("message"))
                 raise JustAuthenticateMeError("Unknown Error")
 
     async def delete_refresh_token(self, id_token: str, refresh_token: str):
