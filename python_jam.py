@@ -1,8 +1,9 @@
+from urllib.parse import quote_plus
+
 import aiohttp
 import jwcrypto.jwk as jwk
 import python_jwt as jwt
 from jwcrypto.jws import InvalidJWSSignature
-from urllib.parse import quote_plus
 
 try:
     import ujson as json
@@ -87,6 +88,27 @@ class JustAuthenticateMe:
             raise JAMNotVerified(str(e))
         except Exception:
             raise JustAuthenticateMeError("Unknown Error")
+
+    async def verify_remote(self, token):
+        """Verify a JustAuthenticateMe token by calling the rest api
+        :param token: idToken (jwt) from JustAuthenticateMe
+        :returns headers, claims: headers and claims encoded in the user jwt
+        :raises JAMNotVerified: if verification fails on a token
+        """
+        async with aiohttp.ClientSession(json_serialize=json.dumps) as session:
+            async with session.post(
+                self.base_url + "verify", json={"idToken": token}
+            ) as response:
+                if response.status == 200:
+                    return jwt.process_jwt(token)
+                if response.status == 400:
+                    raise JustAuthenticateMeError("The request was invalid")
+                if response.status == 401:
+                    raise JAMNotVerified()
+                if response.status == 404:
+                    data = await response.json()
+                    raise JAMNotFound(data.get("message"))
+                raise JustAuthenticateMeError("Unknown Error")
 
     async def refresh(self, refresh_token: str):
         """Refresh id tokens with refresh token

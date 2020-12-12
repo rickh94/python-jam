@@ -174,7 +174,7 @@ async def test_verify_token_fails_expired(monkeypatch, jam):
     jam._jwk = "fake_jwk"
 
     def _fail_verify(*args):
-        raise _JWTError('expired')
+        raise _JWTError("expired")
 
     monkeypatch.setattr("python_jwt.verify_jwt", _fail_verify)
 
@@ -355,3 +355,85 @@ async def test_delete_all_refresh_tokens_unknown_error(mock_aioresponse, jam):
         await jam.delete_all_refresh_tokens("test-id-token")
 
     assert str(einfo.value) == "Unknown Error"
+
+
+@pytest.mark.asyncio
+async def test_verify_remote(mock_aioresponse, jam, mocker):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/verify", status=200
+    )
+    mock_jwt = mocker.patch(
+        "python_jwt.process_jwt", return_value=("headers", "claims")
+    )
+
+    headers, claims = await jam.verify_remote("test-id-token")
+
+    assert headers == "headers"
+    assert claims == "claims"
+
+    mock_jwt.assert_called_with("test-id-token")
+
+
+@pytest.mark.asyncio
+async def test_verify_remote_bad_request(mock_aioresponse, jam, mocker):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/verify", status=400
+    )
+    mock_jwt = mocker.patch(
+        "python_jwt.process_jwt", return_value=("headers", "claims")
+    )
+
+    with pytest.raises(JustAuthenticateMeError):
+        await jam.verify_remote("test-id-token")
+
+    mock_jwt.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_verify_remote_invalid_token(mock_aioresponse, jam, mocker):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/verify", status=401
+    )
+    mock_jwt = mocker.patch(
+        "python_jwt.process_jwt", return_value=("headers", "claims")
+    )
+
+    with pytest.raises(JAMNotVerified):
+        await jam.verify_remote("test-id-token")
+
+    mock_jwt.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_verify_remote_not_found(mock_aioresponse, jam, mocker):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/verify",
+        status=404,
+        payload={"message": "not found"},
+    )
+    mock_jwt = mocker.patch(
+        "python_jwt.process_jwt", return_value=("headers", "claims")
+    )
+
+    with pytest.raises(JAMNotFound) as einfo:
+        await jam.verify_remote("test-id-token")
+
+    mock_jwt.assert_not_called()
+
+    assert str(einfo.value) == "not found"
+
+@pytest.mark.asyncio
+async def test_verify_remote_unknown_error(mock_aioresponse, jam, mocker):
+    mock_aioresponse.post(
+        "https://api.justauthenticate.me/test-app-id/verify",
+        status=500,
+    )
+    mock_jwt = mocker.patch(
+        "python_jwt.process_jwt", return_value=("headers", "claims")
+    )
+
+    with pytest.raises(JustAuthenticateMeError):
+        await jam.verify_remote("test-id-token")
+
+    mock_jwt.assert_not_called()
+
