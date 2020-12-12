@@ -1,6 +1,7 @@
 import pytest
 from aioresponses import aioresponses
 from jwcrypto.jws import InvalidJWSSignature
+from python_jwt import _JWTError
 
 from python_jam import (
     JustAuthenticateMe,
@@ -161,6 +162,19 @@ async def test_verify_token_fails(monkeypatch, jam):
 
     def _fail_verify(*args):
         raise InvalidJWSSignature()
+
+    monkeypatch.setattr("python_jwt.verify_jwt", _fail_verify)
+
+    with pytest.raises(JAMNotVerified):
+        await jam.verify_token("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_verify_token_fails_expired(monkeypatch, jam):
+    jam._jwk = "fake_jwk"
+
+    def _fail_verify(*args):
+        raise _JWTError('expired')
 
     monkeypatch.setattr("python_jwt.verify_jwt", _fail_verify)
 

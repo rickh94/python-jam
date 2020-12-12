@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "python-jam"
-version = "0.1.0"
+version = "1.0.0"
 description = "Asynchronous python Library for justauthenticate.me authentication"
 authors = ["Rick Henry <rickhenry@rickhenry.dev>"]
 license = "MIT"

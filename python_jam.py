@@ -83,6 +83,8 @@ class JustAuthenticateMe:
             return jwt.verify_jwt(token, await self.jwk(), ["ES512"])
         except InvalidJWSSignature:
             raise JAMNotVerified()
+        except jwt._JWTError as e:
+            raise JAMNotVerified(str(e))
         except Exception:
             raise JustAuthenticateMeError("Unknown Error")
 
